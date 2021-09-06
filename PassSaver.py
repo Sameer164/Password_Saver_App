@@ -4,21 +4,21 @@ import string
 import sys
 from tkinter import *
 from tkinter import font as tkfont
-
+import random
 
 questions = ["What high school did you attend?", "What’s your favorite movie?",
              "What is the name of your favorite pet?", "What is your favorite food?",
              "What was your favorite childhood toy?", "What was the make of your first car?",
              "In what city were you born?"]
-CLEAR_ALL = ['label1', 'label2', 'enter', 'code_entry', 'welcome_text', 'broad_security', 'spec_security1',
-             'ans_entry1', 'spec_security2', 'ans_entry2', 'enter_secq2', 'enter_secq1', 'shiftcreateacc', 'save',
+CLEAR_ALL = ['label1', 'label2', 'enter', 'code_entry', 'welcome_text', 'broad_security', 'spec_security',
+             'ans_entry', 'enter_secq', 'shiftcreateacc', 'save',
              'createacc_invalid_message', 'invalid_code_message', 'code_text', 'code_warning', 'name_entry',
              'enter_name', 'invalid_name', 'next1', 'next2', 'sqmenu', 'sqanswer', 'set_answer', 'back', 'select',
              'done', 'CreateAccEndMessage1', 'CreateAccEndMessage2', 'LoggedInMessage', 'ViewPasswordMessage', 'search',
              'savewebsite', 'WebsiteNameMessage', 'AlreadySavedMessage', 'savepassword1', 'EnterPasswordMessage1',
              'PasswordSavedMessage', 'retrn', 'new', 'view', "savePasswordAnywayBt", "saveAnywayBt", 'savepassword2',
              'savePasswordBt', 'EnterPasswordMessage2', 'savedmessage', 'SearchInsteadBt', 'enterwebsite', 'website',
-             'password', 'websites', 'passwords', 'NewPasscode', 'NoneSavedYet']
+             'password', 'websites', 'passwords', 'NewPasscode', 'NoneSavedYet', 'IncorrectAnswerMessage']
 
 BUTTON_COLOR = "DodgerBlue4"
 root = Tk()
@@ -31,14 +31,15 @@ background = PhotoImage(file="BGImageLightTech.png")
 
 canvas = Canvas(root, width=900, height=504)
 
-canvas.create_text(450, 200, text="Welcome to Password Saver!\nHere, you can save passwords\nand"
-                                  " access them with\nthe press of a button!",
-                   font=WELCOME_FONT, fill='#00008B')
-
 counter = 0
+
+LoggedIn = False
 
 
 def init():
+    canvas.create_text(450, 200, text="Welcome to Password Saver!\nHere, you can save passwords\nand"
+                                      " access them with\nthe press of a button!",
+                       font=WELCOME_FONT, fill='#00008B', tags='label1')
     global curs, database
     database = sqlite3.connect("hackathon_database.db")
     curs = database.cursor()
@@ -131,10 +132,10 @@ def createacc():
                                 answer = sqanswer.get()
                                 with database:
                                     curs.execute("INSERT INTO users_answers VALUES (:question, :answer)",
-                                                      {"question": q, "answer": answer.lower()})
+                                                 {"question": q, "answer": answer.lower()})
                                     last_id_answer = curs.lastrowid
                                     curs.execute("INSERT INTO users_joins VALUES (:user_id, :answers_id)",
-                                                      {"user_id": user_id, "answers_id": last_id_answer})
+                                                 {"user_id": user_id, "answers_id": last_id_answer})
                                 SetSecurityQ()
 
                             set_answer = Button(text="Set As Answer", command=SetAnswer)
@@ -159,6 +160,7 @@ def createacc():
                         select = Button(text='Select', command=AskAnswer)
                         canvas.create_window(420, 350, window=select, tags='select')
                         start()
+
                     next2 = Button(text='Next', command=SetSecurityQ)
                     canvas.create_window(450, 350, window=next2, tags='next2')
 
@@ -170,16 +172,35 @@ def createacc():
 
 
 def home():
-    for i in CLEAR_ALL:
-        canvas.delete(i)
-    canvas.create_text(450, 200, text="Welcome to Password Saver!\nHere, you can save passwords\nand"
-                                      " access them with\nthe press of a button!",
-                       font=WELCOME_FONT, fill='#00008B', tags="welcome_text")
+    if LoggedIn is False:
+        clearCanvas([])
+        canvas.create_text(450, 200, text="Welcome to Password Saver!\nHere, you can save passwords\nand"
+                                          " access them with\nthe press of a button!",
+                           font=WELCOME_FONT, fill='#00008B', tags="welcome_text")
+    elif LoggedIn is True:
+        clearCanvas(['home'])
+        Logout = Button(root, text='Logout',
+                        fg='black',
+                        bd=10, highlightthickness=4,
+                        highlightcolor=BUTTON_COLOR,
+                        highlightbackground=BUTTON_COLOR,
+                        borderwidth=4,
+                        font=BUTTON_FONT,
+                        command=start)
+        Logout_canvas = canvas.create_window(70, 5,
+                                             anchor="nw",
+                                             window=Logout, tags='logout')
+        users_powers(code)
+
+
+def logout():
+    LoggedIn = False
+    clearCanvas([])
+    start()
 
 
 def login():
-    for i in CLEAR_ALL:
-        canvas.delete(i)
+    clearCanvas([])
     canvas.create_text(450, 100, text='Login', font=('Helvetica', 40), fill='#00008B', tags="label1")
     canvas.create_text(450, 200, text='Enter Your Code', font=('Helvetica', 20), fill='#00008B', tags="label2")
     code_entry = Entry(root)
@@ -187,7 +208,7 @@ def login():
     code_entry.config(highlightbackground='black')
 
     def EnterCode():
-        global result, code
+        global result, code, LoggedIn
         code = code_entry.get().strip()
         curs.execute("SELECT * FROM users WHERE code =:code", {'code': code})
         result = curs.fetchall()
@@ -205,43 +226,49 @@ def login():
             canvas.create_text(450, 200, text="You will only be logged in if you\n"
                                               "answer your security questions correctly.", font=('Helvetica', 40),
                                fill="#00008B", tags="broad_security")
-            global counter
+            global counter, ids
             if counter == 0:
                 clearCanvas(['broad_security'])
-                ids = answer_ids[0]
+                ids = answer_ids[random.randint(0, len(answer_ids) - 1)]
                 qid = ids[0]
                 curs.execute("SELECT * FROM users_answers WHERE rowid = :qid", {"qid": qid})
                 question_answer_is = curs.fetchone()
                 canvas.create_text(450, 300, text="Answer the security question: {}".format(question_answer_is[0]),
                                    font=('Helvetica', 20),
-                                   fill="#00008B", tags="spec_security1")
+                                   fill="#00008B", tags="spec_security")
                 ans_entry1 = Entry(root)
-                canvas.create_window(450, 350, window=ans_entry1, tags='ans_entry1')
+                canvas.create_window(450, 350, window=ans_entry1, tags='ans_entry')
 
                 def verifyQ1():
                     clearCanvas([])
                     global counter
                     given_ans = ans_entry1.get()
                     if given_ans.lower() == question_answer_is[1].lower():
-                        print(given_ans, question_answer_is[1])
-                        print(type(given_ans), type(question_answer_is[1]))
                         counter += 1
                         EnterCode()
+                    else:
+                        canvas.create_text(450, 200, text='Wrong Answer; your login attempt has failed', font=('Helveti'
+                                                                                                               'ca', 40)
+                                           , fill='#FF0000', tags='IncorrectAnswerMessage')
+                        canvas.create_text(450, 250, text='Please Try Again', font=('Helvetica', 20)
+                                           , fill='#FF0000', tags='IncorrectAnswerMessage')
 
                 enter_secq1 = Button(text='Enter', command=verifyQ1)
-                canvas.create_window(520, 350, window=enter_secq1, tags='enter_secq1')
+                canvas.create_window(520, 350, window=enter_secq1, tags='enter_secq')
 
             if counter == 1:
                 clearCanvas(['broad_security'])
-                ids = answer_ids[1]
-                qid = ids[0]
+                ids2 = answer_ids[random.randint(0, len(answer_ids) - 1)]
+                while ids2 == ids:
+                    ids2 = answer_ids[random.randint(0, len(answer_ids) - 1)]
+                qid = ids2[0]
                 curs.execute("SELECT * FROM users_answers WHERE rowid = :qid", {"qid": qid})
                 question_answer_is = curs.fetchone()
                 canvas.create_text(450, 300, text="Answer the security question: {}".format(question_answer_is[0]),
                                    font=('Helvetica', 20),
-                                   fill="#00008B", tags="spec_security2")
+                                   fill="#00008B", tags="spec_security")
                 ans_entry2 = Entry(root)
-                canvas.create_window(450, 350, window=ans_entry2, tags='ans_entry2')
+                canvas.create_window(450, 350, window=ans_entry2, tags='ans_entry')
 
                 def verifyQ2():
                     clearCanvas([])
@@ -250,10 +277,18 @@ def login():
                     if given_ans.lower() == question_answer_is[1]:
                         counter += 1
                         EnterCode()
+                    else:
+                        counter = 0
+                        canvas.create_text(450, 200, text='Wrong Answer; your login attempt has failed', font=('Helveti'
+                                                                                                               'ca', 40)
+                                           , fill='#FF0000', tags='IncorrectAnswerMessage')
+                        canvas.create_text(450, 250, text='Please Try Again', font=('Helvetica', 20)
+                                           , fill='#FF0000', tags='IncorrectAnswerMessage')
 
                 enter_secq2 = Button(text='Enter', command=verifyQ2)
-                canvas.create_window(520, 350, window=enter_secq2, tags='enter_secq2')
+                canvas.create_window(520, 350, window=enter_secq2, tags='enter_secq')
             if counter == 2:
+                LoggedIn = True
                 canvas.delete('login', 'createacc')
                 Logout = Button(root, text='Logout',
                                 fg='black',
@@ -262,15 +297,13 @@ def login():
                                 highlightbackground=BUTTON_COLOR,
                                 borderwidth=4,
                                 font=BUTTON_FONT,
-                                command=start)
+                                command=logout)
                 Logout_canvas = canvas.create_window(70, 5,
                                                      anchor="nw",
                                                      window=Logout, tags='logout')
 
                 counter = 0
                 clearCanvas([])
-                # canvas.create_text(450, 100, text="You are now logged in as {}".format(result[0][0]),
-                #                    font=WELCOME_FONT)
                 query = """CREATE TABLE IF NOT EXISTS {} 
                     (
                     website text,
@@ -290,6 +323,7 @@ def login():
             canvas.create_text(450, 200, text="Create a new account to join",
                                font=('Helvetica', 20),
                                fill="#00008B", tags="createacc_invalid_message")
+
     enter = Button(text='Enter', command=EnterCode)
     canvas.create_window(520, 300, window=enter, tags='enter')
 
@@ -303,11 +337,13 @@ def users_powers(table_name):
 
     def Save():
         save_a_password(code)
+
     SaveButton = Button(text='New +', command=Save)
     canvas.create_window(400, 250, window=SaveButton, tags='save')
 
     def Search():
         search_for_a_password(code)
+
     SearchButton = Button(text='View', command=Search)
     canvas.create_window(500, 250, window=SearchButton, tags='search')
 
@@ -338,7 +374,7 @@ def save_a_password(table_name):
                     password = password_entry.get()
                     with database:
                         curs.execute("INSERT INTO {} VALUES (:website, :password)".format(table_name),
-                                          {"website": website, "password": password})
+                                     {"website": website, "password": password})
                     canvas.create_text(450, 400, text='Your password has been saved. It will show up when you search fo'
                                                       'r the passwords.',
                                        font=('Helvetica', 15), tags='PasswordSavedMessage')
@@ -351,12 +387,14 @@ def save_a_password(table_name):
 
                     def View():
                         search_for_a_password(code)
+
                     retrn = Button(text='Return to Profile', command=Return)
                     canvas.create_window(300, 450, window=retrn, tags='retrn')
                     new = Button(text='New+', command=New)
                     canvas.create_window(400, 450, window=new, tags='new')
                     view = Button(text='View Passwords', command=View)
                     canvas.create_window(500, 450, window=view, tags='view')
+
                 savePasswordAnywayBt = Button(text='Enter', command=savePasswordAnyway)
                 canvas.create_window(513, 350, window=savePasswordAnywayBt, tags="savePasswordAnywayBt")
 
@@ -399,8 +437,10 @@ def save_a_password(table_name):
                 canvas.create_window(400, 450, window=new, tags='new')
                 view = Button(text='View Passwords', command=View)
                 canvas.create_window(500, 450, window=view, tags='view')
+
             savePasswordBt = Button(text='Enter', command=savePassword)
             canvas.create_window(513, 300, window=savePasswordBt, tags='savePasswordBt')
+
     enterWeb = Button(text='Enter', command=SavePass)
     canvas.create_window(513, 200, window=enterWeb, tags='enterwebsite')
 
@@ -416,6 +456,7 @@ def search_for_a_password(table_name):
 
         def New():
             save_a_password(code)
+
         new = Button(text="New +", command=New)
         canvas.create_window(450, 250, window=new, tags='NewPasscode')
     else:
@@ -430,7 +471,6 @@ def search_for_a_password(table_name):
                                fill='#00008B', tags='websites')
             canvas.create_text(700, y_coord, text=str(tups[1]), font=('Helvetica', 20),
                                fill='#00008B', tags='passwords')
-            # print(f"{tups[0]}\t{tups[1]}")
             y_coord += 50
 
         def Return():
