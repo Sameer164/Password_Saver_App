@@ -10,7 +10,7 @@
 | ------------- |:-------------:| -----:|
 | Sameer (Me)      | Wrote the whole Backend codes like database management, security features, and the flow of the project. | [Sameer](https://github.com/Sameer164/) |
 | Ayush      | Integrated the backend codes with Tkinter, and made the GUI for the project. Added some validations like rejecting empty strings.   |[Ayush](https://github.com/Bluewaves54/) |
-| Berk | Made the security questions of the app.      |[Berk](https://github.com/BK347/)|
+| Berk | Made the security question features of the app.       |[Berk](https://github.com/BK347/)|
 | Abhisekh | Made the random code generator feature of the app      | Abhisekh |
 
 
